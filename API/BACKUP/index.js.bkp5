@@ -1,0 +1,236 @@
+const express = require('express');
+const server = express();
+const bodyParser = require('body-parser');
+const fs = require('fs');
+const mysql = require('mysql');
+const jwt = require('jsonwebtoken');
+
+const usuarios = [];
+
+// Chave secreta para assinar e verificar o token
+const chaveSecreta = '123456789';
+
+server.use(bodyParser.urlencoded({ extended: true }));
+server.use(bodyParser.json());
+
+// Middleware de autenticação com token
+function authenticateToken(req, res, next) {
+  const token = req.headers.authorization;
+
+  if (token) {
+    jwt.verify(token, chaveSecreta, (err, decodedToken) => {
+      if (err) {
+        res.status(403).json({ error: 'Token inválido' }, err);
+      } else {
+        req.user = decodedToken;
+        next();
+      }
+    });
+  } else {
+    res.status(401).json({ error: 'Token não fornecido' }, err);
+  }
+}
+
+// Rota de autenticação para gerar o token
+server.get('/usuarios/:login/:pass', (req, res) => {
+  // Conecte-se ao banco de dados MySQL
+  const connection = mysql.createConnection({
+      host: 'localhost',
+      user: 'root',
+      password: '0220',
+      database: 'node_mysql_crud_db'
+    });
+    const query = 'SELECT * FROM login';
+
+      connection.query(query, (err, results) => {
+      if (err) {
+          console.error('Erro ao executar a consulta:', err);
+          connection.end();
+          return;
+      }
+
+      // Converte os resultados em uma string JSON
+      const jsonString = JSON.stringify(results);
+      const nomeArquivo = 'login.json';
+      // Grava a string JSON em um arquivo
+      fs.writeFile(nomeArquivo, jsonString, 'utf8', (err) => {
+        res.send(err['sqlMessage']);
+      });
+
+      connection.end(); // Encerra a conexão com o banco de dados
+      });
+    
+  const jsonString = fs.readFileSync('./login.json', 'utf8');
+  const jsonData = JSON.parse(jsonString);
+  const usuario = jsonData.find(user => req.params.login === user.login && req.params.pass === user.pass);
+  if(usuario){
+      const payload = { usuario: usuario };
+      // Gere o token com base no payload e na chave secreta
+      const token = jwt.sign(payload, chaveSecreta);
+      res.json({ token: token });
+      console.log('Token enviado');  
+  }else {
+      // Bloco de captura de exceção
+   res.status(401).json({ error: 'Credenciais inválidas' });
+      console.log('Request inválido');    }
+
+    
+});
+
+//Teste de autenticação com Token
+server.get('/usuarios/teste',authenticateToken, (req, res) => {
+  res.json({message:'Token correto! Sucesso!'})
+});
+
+
+// criando o post protegido
+server.post('/usuarios', authenticateToken, (req, res) => {
+  const usuario = req.body;
+  usuarios.push(usuario);
+
+  const jsonData = JSON.stringify(usuario);
+  const nomeArquivo = 'login.json';
+  // escreve no json
+  fs.writeFile(nomeArquivo, jsonData, (err) => {
+      if (err) {
+        console.error('Erro ao escrever no arquivo:', err);
+        return;
+      }
+      console.log('Arquivo JSON gravado com sucesso!');
+    });
+    
+    // enviando para o BD
+    fs.readFile(nomeArquivo, 'utf8', (err, jsonString) => {
+      if (err) {
+        console.error('Erro ao ler o arquivo:', err);
+      }
+    
+      // Converta a string JSON em um objeto JavaScript
+      const jsonData = JSON.parse(jsonString);
+    
+      // Conecte-se ao banco de dados MySQL
+      const connection = mysql.createConnection({
+        host: 'localhost',
+        user: 'root',
+        password: '0220',
+        database: 'node_mysql_crud_db'
+      });
+
+        // enviando para o BD
+      connection.query('INSERT INTO login SET ?', jsonData, (err, results) => {
+        if(err){
+          res.send("Erro: ",err['sqlMessage']);
+          console.log("Erro: ",err);
+        }else{
+          res.send("OK");
+          console.log("OK");
+        }
+
+        connection.end(); // Encerre a conexão com o banco de dados
+      });
+  });
+});
+
+
+//fazendo o put
+server.put('/usuarios/:email', (req, res) => {
+  const index = usuarios.findIndex(user=>user.email === req.params.email);
+  const usuario = req.body;
+  usuarios.splice(index, 1, usuario);
+
+  const jsonData = JSON.stringify(usuario);
+  const nomeArquivo = 'login.json';
+  // escreve no json
+  fs.writeFile(nomeArquivo, jsonData, (err) => {
+      if (err) {
+        console.error('Erro ao escrever no arquivo:', err);
+        return;
+      }
+      console.log('Arquivo JSON gravado com sucesso!');
+    });
+    
+    // enviando para o BD
+    fs.readFile(nomeArquivo, 'utf8', (err, jsonString) => {
+      if (err) {
+        console.error('Erro ao ler o arquivo:', err);
+        return;
+      }
+    
+      // Converta a string JSON em um objeto JavaScript
+      const jsonData = JSON.parse(jsonString);
+    
+      // Conecte-se ao banco de dados MySQL
+      const connection = mysql.createConnection({
+        host: 'localhost',
+        user: 'root',
+        password: '0220',
+        database: 'node_mysql_crud_db'
+      });
+        // enviando para o BD
+      connection.query("UPDATE login SET login = '"+jsonData["login"]+"', pass = '"+jsonData["pass"]+ "' WHERE id = '"+jsonData['id'] +"'" , (err, results) => {
+        if(err){
+          res.send("Erro: ",err['sqlMessage']);
+          console.log("Erro: ",err);
+        }else{
+          res.send("OK");
+          console.log("OK");
+        }
+
+        connection.end(); // Encerre a conexão com o banco de dados
+      });
+  });
+});
+
+
+//fazendo o delete
+server.delete('/usuarios/:id', (req, res) => {
+const index = usuarios.findIndex(user=>user.id === ~~req.params.id);
+const usuario = req.body;
+usuarios.splice(index, 1);
+
+const jsonData = JSON.stringify(usuario);
+const nomeArquivo = 'login.json';
+// escreve no json
+fs.writeFile(nomeArquivo, jsonData, (err) => {
+    if (err) {
+      console.error('Erro ao escrever no arquivo:', err);
+      return;
+    }
+    console.log('Arquivo JSON gravado com sucesso!');
+  });
+  
+  // enviando para o BD
+  fs.readFile(nomeArquivo, 'utf8', (err, jsonString) => {
+    if (err) {
+      console.error('Erro ao ler o arquivo:', err);
+      return;
+    }
+  
+    // Converta a string JSON em um objeto JavaScript
+    const jsonData = JSON.parse(jsonString);
+  
+    // Conecte-se ao banco de dados MySQL
+    const connection = mysql.createConnection({
+      host: 'localhost',
+      user: 'root',
+      password: '0220',
+      database: 'node_mysql_crud_db'
+    });
+      // enviando para o BD
+      connection.query("DELETE FROM login WHERE id = '" + jsonData['id'] + "'", (err, results) => {
+        if(err){
+          res.send("Erro: ",err['sqlMessage']);
+          console.log("Erro: ",err);
+        }else{
+          res.send("OK");
+          console.log("OK");
+        }
+        connection.end(); // Encerre a conexão com o banco de dados
+      });
+  });
+});
+
+
+server.listen(3000, () => {
+  console.log('Example app listening on port',3000)
+});

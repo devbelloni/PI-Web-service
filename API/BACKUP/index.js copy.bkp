@@ -1,0 +1,46 @@
+const express = require('express');
+const server = express();
+const bodyParser = require('body-parser');
+const fs = require('fs');
+const mysql = require('mysql');
+
+server.use(bodyParser.urlencoded({ extended: true }));
+server.use(bodyParser.json());
+
+// Middleware para autenticação Bearer
+const authenticateUser = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  
+  if (!token) {
+    return res.sendStatus(401);
+  }
+  
+  // Verifique o token e realize a autenticação adequada
+  
+  next();
+};
+
+// criando o post
+server.post('/usuarios', authenticateUser, (req, res) => {
+  // Resto do código
+});
+
+// fazendo o get
+server.get('/usuarios/:login/:pass', authenticateUser, (req, res) => {
+  // Resto do código
+});
+
+// fazendo o put
+server.put('/usuarios/:id', authenticateUser, (req, res) => {
+  // Resto do código
+});
+
+// fazendo o delete
+server.delete('/usuarios/:id', authenticateUser, (req, res) => {
+  // Resto do código
+});
+
+server.listen(3000, () => {
+  console.log('Example app listening on port', 3000);
+});
